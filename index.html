@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chicago – poängräknare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8E8E8;--ink:#111111;--muted:#8E8E8E;--soft:rgba(0,0,0,.16);--track:#CDCDCD;
+  --inv-bg:#111111;--inv-ink:#FFFFFF;--inv-chip:rgba(255,255,255,.18);
+  --red:#D32F3F;--s1:#111111;--s2:#555555;--s3:#808080;--s4:#ABABAB;--dot-ink:#FFFFFF;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E0E0E;--ink:#F2F2F2;--muted:#8A8A8A;--soft:rgba(255,255,255,.18);--track:#333333;
+    --inv-bg:#F2F2F2;--inv-ink:#0E0E0E;--inv-chip:rgba(0,0,0,.12);
+    --red:#E04555;--s1:#F2F2F2;--s2:#BDBDBD;--s3:#8A8A8A;--s4:#5C5C5C;--dot-ink:#0E0E0E;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E0E0E;--ink:#F2F2F2;--muted:#8A8A8A;--soft:rgba(255,255,255,.18);--track:#333333;
+  --inv-bg:#F2F2F2;--inv-ink:#0E0E0E;--inv-chip:rgba(0,0,0,.12);
+  --red:#E04555;--s1:#F2F2F2;--s2:#BDBDBD;--s3:#8A8A8A;--s4:#5C5C5C;--dot-ink:#0E0E0E;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{overflow-x:hidden}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Inter',-apple-system,'SF Pro Display','Segoe UI',system-ui,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+}
+main{max-width:520px;margin:0 auto;padding:28px 16px 140px}
+h1{margin:8px 0 0;font-size:52px;line-height:1.02;font-weight:200;letter-spacing:-.04em}
+h1.big{font-size:72px;margin-top:36px}
+.sub{margin:12px 0 22px;color:var(--muted);font-size:14px;line-height:1.5;max-width:40ch}
+.hint{color:var(--muted);font-size:13px;margin:0 0 14px;line-height:1.45}
+.topbar{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14px;margin-bottom:6px}
+.topbar span:last-child{color:var(--muted);text-align:right}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Spelet */
+.grid{display:block;border-bottom:2px solid var(--ink)}
+.topbar+.hint{margin:0 0 10px}
+.tile{
+  position:relative;display:grid;grid-template-columns:auto 1fr auto;
+  grid-template-areas:"score info row" "bar bar bar";column-gap:14px;align-items:center;
+  padding:11px 0 13px;border-top:2px solid var(--ink);color:var(--ink);
+  user-select:none;-webkit-user-select:none;touch-action:manipulation;cursor:pointer;
+  transition:background .15s,opacity .1s;
+}
+.tile:active{opacity:.75}
+.tile .info{grid-area:info;min-width:0}
+.tile.lock{background:var(--red);color:#fff;border-top-color:var(--red);margin:0 -16px;padding-left:16px;padding-right:16px}
+.tile.win{background:var(--inv-bg);color:var(--inv-ink);border-top-color:var(--inv-bg);margin:0 -16px;padding-left:16px;padding-right:16px}
+.name{font-size:15px;font-weight:500;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wins{font-size:12px;line-height:1.3;color:var(--muted)}
+.score{grid-area:score;font-size:56px;line-height:1;font-weight:200;letter-spacing:-.05em;font-variant-numeric:tabular-nums;min-width:2ch}
+.score.sm{font-size:38px}
+.status{font-size:12px;line-height:1.3;color:var(--muted)}
+.status s{text-decoration-thickness:1.5px}
+.more{font-weight:400;opacity:.85}
+.tile.lock .status,.tile.win .status{color:inherit;font-weight:600}
+.tile.lock .wins,.tile.win .wins{color:inherit;opacity:.8}
+.bar{grid-area:bar;position:relative;height:2px;background:var(--track);margin:10px 0 0}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);transition:width .15s}
+.bar b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.tile.lock .bar{background:rgba(255,255,255,.35)}
+.tile.lock .bar i,.tile.lock .bar b{background:#fff}
+.tile.win .bar{background:var(--inv-chip)}
+.tile.win .bar i,.tile.win .bar b{background:var(--inv-ink)}
+.row{grid-area:row;display:flex;gap:8px}
+.hand,.minus{font:inherit;color:inherit;background:transparent;border:1.5px solid currentColor;border-radius:999px;min-height:44px;cursor:pointer}
+.hand{font-size:14px;font-weight:500;padding:0 18px}
+.minus{flex:none;width:44px;font-size:22px;font-weight:300;line-height:1;padding:0 0 3px}
+.hand:active,.minus:active{opacity:.55}
+.tile.edit{display:flex;flex-direction:column;align-items:stretch;gap:10px;cursor:default}
+.tile.edit:active{opacity:1}
+.tile.add{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;min-height:64px}
+.name-input{font:inherit;font-size:20px;font-weight:300;color:var(--ink);background:transparent;border:0;border-bottom:1.5px solid var(--ink);border-radius:0;padding:10px 0;width:100%;min-height:48px}
+.chip{font:inherit;font-size:14px;font-weight:500;color:var(--ink);background:transparent;border:1.5px solid var(--ink);border-radius:999px;min-height:44px;padding:0 18px;cursor:pointer}
+.chip:active{opacity:.55}
+
+/* Startsida */
+.menu{border-top:2px solid var(--ink);margin-top:22px;padding-top:8px}
+.mtile{font:inherit;color:var(--ink);background:none;border:0;width:100%;display:flex;align-items:center;gap:16px;padding:12px 0;text-align:left;cursor:pointer}
+.mtile:active{opacity:.6}
+.mtile:disabled{opacity:.35;cursor:default}
+.mtile svg{flex:none;width:48px;height:48px;padding:13px;border-radius:50%;stroke:var(--dot-ink);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.mtile svg.d1,.dot.d1{background:var(--s1)}
+.mtile svg.d2,.dot.d2{background:var(--s2)}
+.mtile svg.d3,.dot.d3{background:var(--s3)}
+.mtile svg.d4,.dot.d4{background:var(--s4)}
+.ml{flex:1;font-size:15px;font-weight:500}
+.ms{font-size:13px;color:var(--muted)}
+
+/* Inställningar och spelare */
+.back{font:inherit;font-size:15px;color:var(--ink);background:none;border:0;padding:0;min-height:44px;margin:-8px 0 4px;cursor:pointer}
+.label{font-size:15px;font-weight:600;margin:30px 0 4px;padding-top:14px;border-top:2px solid var(--ink)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.o{font:inherit;color:var(--ink);background:transparent;border:1.5px solid var(--ink);border-radius:18px;padding:14px 16px;min-height:92px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer}
+.o b{font-size:34px;font-weight:200;letter-spacing:-.03em}
+.o small{font-size:12px;color:var(--muted)}
+.o.on{background:var(--inv-bg);color:var(--inv-ink);border-color:var(--inv-bg)}
+.o.on small{color:inherit;opacity:.7}
+.primary{display:block;width:100%;margin-top:30px;min-height:56px;border:0;border-radius:999px;background:var(--inv-bg);color:var(--inv-ink);font:inherit;font-size:16px;font-weight:600;cursor:pointer}
+.primary:disabled{opacity:.3;cursor:default}
+.plist{display:flex;flex-direction:column;gap:6px}
+.prow{display:flex;gap:8px;align-items:center}
+.draft-input,.rin{flex:1;min-width:0;font:inherit;font-size:20px;font-weight:300;color:var(--ink);background:transparent;border:0;border-bottom:1.5px solid var(--ink);border-radius:0;padding:0;min-height:54px}
+.draft-input::placeholder,.rin::placeholder{color:var(--muted);font-weight:300}
+.x{flex:none;width:44px;min-height:54px;border:0;background:transparent;color:var(--muted);font:inherit;font-size:26px;font-weight:300;cursor:pointer}
+.chip.addp{width:100%;margin-top:16px;min-height:48px;border-style:dashed;border-color:var(--muted);color:var(--muted)}
+.chip.addb{margin-left:8px;min-height:44px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.rrow{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--soft);min-height:56px;font-size:17px}
+.rrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Statistik */
+.band{background:var(--inv-bg);color:var(--inv-ink);margin:-28px -16px 0;padding:18px 20px 26px}
+.bandtop{display:flex;align-items:center;justify-content:space-between;font-size:17px;margin-bottom:26px}
+.bandtop button{background:none;border:0;color:inherit;font:inherit;font-size:24px;width:44px;height:44px;margin-left:-12px;cursor:pointer;text-align:left;padding-left:12px}
+.bandtop i{width:44px}
+.bandlab{font-size:12px;opacity:.6}
+.bandnum{font-size:34px;font-weight:600;letter-spacing:-.02em;margin-top:2px}
+.chart{display:flex;align-items:flex-end;gap:4px;padding:28px 0 8px}
+.bcol{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
+.bcol i{display:block;width:6px;background:repeating-linear-gradient(to top,var(--ink) 0 16px,transparent 16px 20px)}
+.bcol.dim i{background:repeating-linear-gradient(to top,var(--muted) 0 16px,transparent 16px 20px)}
+.bcol b{font-size:11px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bcol span{font-size:10px;color:var(--muted)}
+.sec{border-top:2px solid var(--ink);margin-top:22px;padding-top:14px}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.sh b{font-size:15px;font-weight:600}
+.sh span{font-size:12px;color:var(--muted)}
+.lrow{display:flex;align-items:center;gap:14px;padding:8px 0}
+.dot{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:500;color:var(--dot-ink)}
+.lrow .nm{flex:1;min-width:0;font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .val{font-size:15px;font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.hrow{border-bottom:1px solid var(--soft);padding:12px 0;display:flex;flex-direction:column;gap:4px}
+.hrow .ht{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.hrow b{font-size:17px;font-weight:500}
+.hrow .hm{color:var(--muted);font-size:12px}
+.hrow .hs{font-size:13px;line-height:1.45}
+.hrow .chip{align-self:flex-start;margin-top:8px;min-height:34px;font-size:12px;padding:0 14px}
+
+/* Dock */
+.dock{
+  position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:flex-end;
+  padding:30px 20px calc(12px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(to top,var(--bg) 62%,transparent);z-index:5;pointer-events:none;
+}
+.dock[hidden]{display:none}
+.dbtn{pointer-events:auto;background:none;border:0;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:6px;font:inherit;font-size:11px;min-width:76px;padding:0;cursor:pointer}
+.dbtn:active{opacity:.6}
+.dbtn svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.dbtn.main svg{width:64px;height:64px;padding:19px;border-radius:50%;background:var(--inv-bg);stroke:var(--inv-ink)}
+.dbtn.armed svg{background:var(--red);stroke:#fff}
+
+/* Handval */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+.sheet{width:100%;max-width:520px;max-height:92%;overflow-y:auto;background:var(--bg);border-radius:28px 28px 0 0;padding:22px 20px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h2{margin:0 0 4px;font-size:26px;font-weight:200;letter-spacing:-.03em}
+.grp{margin:18px 0 4px;padding-top:12px;border-top:2px solid var(--ink);font-size:13px;font-weight:600}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;font:inherit;font-size:17px;color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--soft);border-radius:0;padding:10px 0;min-height:50px;cursor:pointer;text-align:left}
+.opt:active{opacity:.55}
+.opt span{color:var(--muted);font-size:15px}
+.opt.special{background:var(--inv-bg);color:var(--inv-ink);border:0;border-radius:14px;padding:10px 16px;margin:6px 0}
+.opt.special span{color:inherit;opacity:.7}
+.opt.cancel{justify-content:center;color:var(--muted);border:0;margin-top:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(122px + env(safe-area-inset-bottom,0px));background:var(--inv-bg);color:var(--inv-ink);border-radius:999px;padding:8px 8px 8px 18px;display:flex;align-items:center;gap:12px;font-size:14px;z-index:20;max-width:calc(100% - 24px)}
+.toast button{font:inherit;font-weight:600;color:inherit;background:var(--inv-chip);border:0;border-radius:999px;padding:8px 14px;min-height:36px;cursor:pointer}
+
+/* Vinnarskärm */
+.win{position:fixed;inset:0;z-index:30;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));animation:fade .35s ease-out both}
+.shell{width:min(78vw,340px);height:auto;display:block;overflow:visible}
+.shell .d{fill:none;stroke:#111;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw var(--t,.8s) cubic-bezier(.4,0,.2,1) var(--d,0s) both}
+.shell .wedge{fill:#111;animation:fade .7s ease-out .3s both}
+.win-name{margin:28px 0 0;font-size:clamp(32px,11vw,52px);line-height:1.1;font-weight:600;letter-spacing:-.03em;text-align:center;max-width:100%;overflow-wrap:anywhere;animation:rise .9s ease-out 2.2s both}
+.win-close{margin-top:36px;font:inherit;font-size:16px;font-weight:600;color:#fff;background:#111;border:0;border-radius:999px;padding:0 30px;min-height:48px;cursor:pointer;animation:fade .6s ease-out 3s both}
+.win-close:focus-visible{outline:3px solid #111;outline-offset:3px}
+@keyframes draw{from{stroke-dashoffset:1;opacity:0}4%{opacity:1}to{stroke-dashoffset:0;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.win,.shell .d,.shell .wedge,.win-name,.win-close{animation:none!important}.shell .d{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div class="sr" id="live" aria-live="polite"></div>
+<nav class="dock" id="dock" aria-label="Spel" hidden>
+  <button class="dbtn" id="editBtn" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
+    <span id="editLbl">Spelare</span>
+  </button>
+  <button class="dbtn main" id="newBtn" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+    <span id="newLbl">Nästa spel</span>
+  </button>
+  <button class="dbtn" id="homeBtn" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 10v10h12V10"/></svg>
+    <span>Start</span>
+  </button>
+</nav>
+<div id="sheetHost"></div>
+<div id="toastHost"></div>
+<div id="winHost"></div>
+<script>
+(function(){
+  var KEY='chicago-v2', MAXP=8, BASE=52;
+  var DEF={lock:47,winMode:'at'};
+  var HANDS=[['Par',1],['2 par',2],['Triss',3],['Stege',4],['Färg',5],['Kåk',6],['Färgstege',7]];
+  var OTHER=[['Stick',5],['Chicago',15],['Förlorad Chicago',-15]];
+  var state={screen:'start',game:null,draft:null,edit:false,last:DEF,roster:[],history:[]};
+  function okS(c){return c&&(c.lock===41||c.lock===47)&&(c.winMode==='at'||c.winMode==='over');}
+  try{
+    var s=JSON.parse(localStorage.getItem(KEY));
+    if(s){
+      if(okS(s.last)) state.last=s.last;
+      if(s.game&&okS(s.game.settings)&&Array.isArray(s.game.players)&&s.game.players.length>1){
+        state.game=s.game;
+        state.game.gid=state.game.gid||Date.now();state.game.startedAt=state.game.startedAt||Date.now();
+        state.game.players.forEach(function(p){p.four=p.four||0;p.chi=p.chi||0;});
+      }
+      if(Array.isArray(s.roster)) state.roster=s.roster.filter(function(x){return typeof x==='string'&&x;});
+      if(Array.isArray(s.history)) state.history=s.history.filter(function(r){return r&&Array.isArray(r.players)&&typeof r.dur==='number';});
+    }
+  }catch(e){}
+  function $(id){return document.getElementById(id);}
+  var app=$('app'),live=$('live'),dock=$('dock'),editBtn=$('editBtn'),newBtn=$('newBtn'),homeBtn=$('homeBtn');
+  var editLbl=$('editLbl'),newLbl=$('newLbl'),sheetHost=$('sheetHost'),toastHost=$('toastHost'),winHost=$('winHost'),winAt=0;
+  var newArmed=null,toastTimer=null;
+
+  function save(){syncRecord();try{localStorage.setItem(KEY,JSON.stringify({game:state.game,last:state.last,roster:state.roster,history:state.history}));}catch(e){}}
+  function esc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function fmt(n){return n<0?'\u2212'+(-n):String(n);}
+  function pts(n){return (n<0?'\u2212':'+')+Math.abs(n)+' p';}
+  function find(id){var a=state.game.players;for(var i=0;i<a.length;i++) if(a[i].id==id) return a[i];}
+  function cfg(){return state.game.settings;}
+  function isWin(n){return cfg().winMode==='over'?n>BASE:n>=BASE;}
+  function target(){return cfg().winMode==='over'?BASE+1:BASE;}
+
+  function key(n){return String(n).trim().toLowerCase();}
+  function fmtDur(ms){
+    var t=Math.max(0,Math.round(ms/1000));
+    if(t<60) return t+' s';
+    var m=Math.floor(t/60),sec=t%60;
+    if(m<60) return m+' min'+(sec?' '+sec+' s':'');
+    return Math.floor(m/60)+' tim '+(m%60)+' min';
+  }
+  function fmtDate(ts){
+    var d=new Date(ts);
+    try{return d.toLocaleDateString('sv-SE',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});}catch(e){return '';}
+  }
+  function addRoster(n){
+    n=(n||'').trim();
+    if(!n||/^Spelare \d+$/.test(n)) return;
+    var k=key(n);
+    for(var i=0;i<state.roster.length;i++) if(key(state.roster[i])===k) return;
+    state.roster.push(n);
+  }
+  function syncRecord(){
+    var g=state.game; if(!g) return;
+    var w=g.winnerId?find(g.winnerId):null;
+    var i,at=-1;
+    for(i=0;i<state.history.length;i++) if(state.history[i].id===g.gid) at=i;
+    if(w&&isWin(w.score)){
+      var rec={id:g.gid,end:g.winAt,dur:g.winAt-g.startedAt,winner:w.name,
+        players:g.players.map(function(p){return {n:p.name,s:p.score,f:p.four||0,c:p.chi||0};})};
+      if(at>=0) state.history[at]=rec; else state.history.push(rec);
+    } else {
+      if(g.winnerId){g.winnerId=null;g.winAt=null;}
+      if(at>=0) state.history.splice(at,1);
+    }
+  }
+  function savedChips(){
+    var n=state.draft.names.map(key),out=[];
+    state.roster.forEach(function(r,i){
+      if(n.indexOf(key(r))<0) out.push('<button class="chip pick" type="button" data-act="pick" data-i="'+i+'">'+esc(r)+'</button>');
+    });
+    return (out.length&&state.draft.names.length<MAXP)?'<h2 class="label">Sparade spelare</h2><div class="chips">'+out.join('')+'</div>':'';
+  }
+  function go(screen){
+    state.screen=screen;state.edit=false;closeSheet();toastHost.innerHTML='';
+    resetBtn();render();window.scrollTo(0,0);
+  }
+  function render(){
+    dock.hidden=state.screen!=='game';
+    if(state.screen==='start') rStart();
+    else if(state.screen==='settings') rSettings();
+    else if(state.screen==='players') rPlayers();
+    else if(state.screen==='stats') rStats();
+    else if(state.screen==='roster') rRoster();
+    else rGame();
+  }
+
+  /* Startsida */
+  function rStart(){
+    var g=state.game,dt='';
+    try{dt=new Date().toLocaleDateString('sv-SE',{weekday:'short',day:'numeric',month:'short'});}catch(e){}
+    function tile(act,icon,label,sub,shade,dis){
+      return '<button class="mtile" type="button" data-act="'+act+'"'+(dis?' disabled':'')+'><svg class="d'+shade+'" viewBox="0 0 24 24" aria-hidden="true">'+icon+'</svg><span class="ml">'+label+'</span>'+(sub?'<span class="ms">'+sub+'</span>':'')+'</button>';
+    }
+    app.innerHTML='<div class="topbar"><span>Poängräknare</span><span>'+dt+'</span></div><h1 class="big">Chicago</h1><div class="menu">'
+      +tile('new-game','<path d="M12 5v14M5 12h14"/>','Nytt spel','',1)
+      +tile('continue','<path d="M8 5v14l11-7z"/>','Fortsätt spel',g?g.players.length+' spelare':'',2,!g)
+      +tile('open-stats','<path d="M5 20V10M12 20V4M19 20v-7"/>','Statistik',state.history.length+' avslutade spel',3)
+      +tile('open-roster','<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.6-3.4 2.9-5 5.5-5s4.9 1.6 5.5 5M16 5.2a3.2 3.2 0 0 1 0 5.6M18 15.2c1.7.6 2.9 2.2 3.3 4.8"/>','Spelare',state.roster.length+' sparade',4)
+      +'</div>';
+  }
+
+  /* Inställningar */
+  function back(){return '<button class="back" type="button" data-act="back">\u2190 Tillbaka</button>';}
+  function opt(act,v,cur,big,small){
+    var on=String(v)===String(cur);
+    return '<button class="o'+(on?' on':'')+'" type="button" role="radio" aria-checked="'+on+'" data-act="'+act+'" data-v="'+v+'"><b>'+big+'</b><small>'+small+'</small></button>';
+  }
+  function rSettings(){
+    var d=state.draft;
+    app.innerHTML=back()+'<h1>Inställningar</h1><p class="sub">Välj reglerna för spelet.</p>'
+      +'<h2 class="label">Bytesstopp</h2><p class="hint">Man får inte byta kort från och med…</p>'
+      +'<div class="opts" role="radiogroup" aria-label="Bytesstopp">'+opt('set-lock',41,d.lock,'41','poäng')+opt('set-lock',47,d.lock,'47','poäng')+'</div>'
+      +'<h2 class="label">Vinst</h2><p class="hint">Man vinner…</p>'
+      +'<div class="opts" role="radiogroup" aria-label="Vinst">'+opt('set-win','at',d.winMode,'Vid 52','52 räcker')+opt('set-win','over',d.winMode,'Över 52','minst 53')+'</div>'
+      +'<button class="primary" type="button" data-act="to-players">Nästa</button>';
+  }
+
+  /* Spelare */
+  function validNames(){return state.draft.names.map(function(x){return x.trim();}).filter(Boolean);}
+  function updateStart(){var b=$('startBtn');if(b) b.disabled=validNames().length<2;}
+  function rPlayers(fi){
+    var n=state.draft.names;
+    app.innerHTML=back()+'<h1>Spelare</h1><p class="sub">Skriv in namnen på dem som spelar. Minst två.</p><div class="plist">'
+      +n.map(function(v,i){
+        return '<div class="prow"><input class="draft-input" data-i="'+i+'" value="'+esc(v)+'" maxlength="14" placeholder="Namn på spelare '+(i+1)+'" aria-label="Spelare '+(i+1)+'" autocomplete="off" autocapitalize="words" enterkeyhint="next">'
+          +(n.length>1?'<button class="x" type="button" data-act="del-draft" data-i="'+i+'" aria-label="Ta bort spelare '+(i+1)+'">\u00d7</button>':'')+'</div>';
+      }).join('')+'</div>'
+      +(n.length<MAXP?'<button class="chip addp" type="button" data-act="add-draft">+ Lägg till spelare</button>':'')
+      +savedChips()
+      +'<button class="primary" id="startBtn" type="button" data-act="start-game">Starta spel</button>';
+    updateStart();
+    if(fi!==undefined){var el=app.querySelector('.draft-input[data-i="'+fi+'"]');if(el) el.focus();}
+  }
+
+  /* Statistik och sparade spelare */
+  function card(title,items,limit,note){
+    var h='<section class="sec"><div class="sh"><b>'+title+'</b>'+(note?'<span>'+note+'</span>':'')+'</div>';
+    if(!items.length) h+='<div class="empty">Ingen data än</div>';
+    else{
+      var rk=0,prev=null;
+      items.slice(0,limit).forEach(function(it,i){
+        if(it[1]!==prev){rk=i+1;prev=it[1];}
+        h+='<div class="lrow"><span class="dot d'+Math.min(rk,4)+'">'+rk+'</span><span class="nm">'+esc(it[0])+'</span><span class="val">'+it[2]+'</span></div>';
+      });
+    }
+    return h+'</section>';
+  }
+  function rStats(){
+    var H=state.history,disp={},win={},lose={},four={},chi={};
+    function inc(o,k,n){o[k]=(o[k]||0)+n;}
+    H.forEach(function(r){
+      var kw=key(r.winner),min=Infinity;
+      disp[kw]=r.winner;inc(win,kw,1);
+      r.players.forEach(function(p){var k=key(p.n);disp[k]=p.n;if(p.s<min)min=p.s;inc(four,k,p.f||0);inc(chi,k,p.c||0);});
+      r.players.forEach(function(p){var k=key(p.n);if(p.s===min&&k!==kw) inc(lose,k,1);});
+    });
+    function list(o){
+      var a=[];for(var k in o){if(o[k]>0) a.push([disp[k],o[k],String(o[k])]);}
+      a.sort(function(x,y){return y[1]-x[1];});return a;
+    }
+    var fast=H.slice().sort(function(a,b){return a.dur-b.dur;}).map(function(r){return [r.winner,r.dur,fmtDur(r.dur)];});
+    var rows=H.slice().sort(function(a,b){return b.end-a.end;}).map(function(r){
+      var sc=r.players.slice().sort(function(a,b){return b.s-a.s;}).map(function(q){return esc(q.n)+' '+fmt(q.s);}).join(' \u00b7 ');
+      return '<div class="hrow"><div class="ht"><b>'+esc(r.winner)+'</b><span class="hm">'+fmtDate(r.end)+' \u00b7 '+fmtDur(r.dur)+'</span></div>'
+        +'<div class="hs">'+sc+'</div><button class="chip" type="button" data-act="del-rec" data-id="'+r.id+'">Ta bort</button></div>';
+    }).join('');
+    var wl=list(win).slice(0,8),mx=wl.length?wl[0][1]:1;
+    var chart=wl.length?'<div class="chart" role="img" aria-label="Vinster per spelare">'+wl.map(function(it,i){
+      return '<div class="bcol'+(i?' dim':'')+'"><i style="height:'+Math.max(10,Math.round(it[1]/mx*150))+'px"></i><b>'+esc(it[0])+'</b><span>'+it[1]+'</span></div>';
+    }).join('')+'</div>':'<div class="empty" style="padding:36px 0 8px">Inga avslutade spel än.</div>';
+    app.innerHTML='<div class="band"><div class="bandtop"><button type="button" data-act="back" aria-label="Tillbaka">\u2190</button><span>Statistik</span><i></i></div><div class="bandlab">Avslutade spel</div><div class="bandnum">'+H.length+'</div></div>'
+      +chart+'<p class="hint">Räknas från spel där någon har vunnit.</p>'
+      +card('Flest vinster',list(win),8)
+      +card('Flest förluster',list(lose),8,'Minst poäng vid vinst')
+      +card('Kortast tid till vinst',fast,5)
+      +card('Flest fyrtal',list(four),8)
+      +card('Flest vunna Chicago',list(chi),8)
+      +'<section class="sec"><div class="sh"><b>Spelade spel</b></div>'+(rows||'<div class="empty">Inga avslutade spel än.</div>')+'</section>';
+  }
+  function rRoster(){
+    app.innerHTML=back()+'<h1>Spelare</h1><p class="sub">Sparade spelare som du snabbt kan lägga till i nya spel. Namn sparas också automatiskt när du startar ett spel.</p>'
+      +'<div class="prow"><input class="rin" id="rosterIn" maxlength="14" placeholder="Nytt namn" aria-label="Nytt namn" autocomplete="off" autocapitalize="words" enterkeyhint="done"><button class="chip addb" type="button" data-act="roster-add">Lägg till</button></div>'
+      +'<div style="height:16px"></div>'
+      +(state.roster.length?state.roster.map(function(r,i){
+        return '<div class="rrow"><span>'+esc(r)+'</span><button class="x" type="button" data-act="roster-del" data-i="'+i+'" aria-label="Ta bort '+esc(r)+'">\u00d7</button></div>';
+      }).join(''):'<p class="hint">Inga sparade spelare än.</p>');
+  }
+  function rosterAdd(){
+    var inp=$('rosterIn'); if(!inp) return;
+    var v=inp.value.trim(); if(!v) return;
+    addRoster(v); save(); rRoster();
+    var i2=$('rosterIn'); if(i2) i2.focus();
+  }
+
+  /* Spel */
+  function rGame(){
+    var g=state.game,c=g.settings;
+    var h='<div class="topbar"><span>Chicago</span><span>Bytesstopp '+c.lock+' \u00b7 Vinst '+(c.winMode==='over'?'över 52':'vid 52')+'</span></div><p class="hint">Tryck på en spelare för +1.</p><div class="grid">';
+    h+=g.players.map(function(p){
+      if(state.edit){
+        return '<div class="tile edit"><input class="name-input" maxlength="14" placeholder="Namn" aria-label="Spelarnamn" value="'+esc(p.name)+'" data-id="'+p.id+'">'
+          +'<button class="chip" type="button" data-act="del" data-id="'+p.id+'">Ta bort</button></div>';
+      }
+      var win=isWin(p.score),lock=!win&&p.score>=c.lock;
+      var st=win?'win':(lock?'lock':'');
+      var pct=Math.max(0,Math.min(100,p.score/BASE*100));
+      var left=target()-p.score;
+      var plain=win?'Vinnare':(lock?'Får inte byta kort, '+left+' kvar till vinst':(c.lock-p.score)+' kvar till bytesstopp');
+      var status=win?'Vinnare':(lock?'<s>Byta kort</s> spärrat<div class="more">'+left+' kvar till vinst</div>':(c.lock-p.score)+' kvar till '+c.lock);
+      var sc=fmt(p.score);
+      return '<div class="tile '+st+'" role="button" tabindex="0" data-act="add" data-id="'+p.id+'" aria-label="'+esc(p.name)+', '+sc+' poäng, '+plain+'. Ge ett poäng">'
+        +'<div class="score'+(sc.length>=4?' sm':'')+'">'+sc+'</div>'
+        +'<div class="info"><div class="name">'+esc(p.name)+'</div><div class="status">'+status+'</div>'+(p.wins?'<div class="wins">Vinster: '+p.wins+'</div>':'')+'</div>'
+        +'<div class="bar"><i style="width:'+pct+'%"></i><b style="left:'+(c.lock/BASE*100)+'%"></b></div>'
+        +'<div class="row"><button class="hand" type="button" data-act="hand" data-id="'+p.id+'" aria-label="Välj hand för '+esc(p.name)+'">Hand</button>'
+        +'<button class="minus" type="button" data-act="sub" data-id="'+p.id+'" aria-label="Ta bort ett poäng från '+esc(p.name)+'">\u2212</button></div>'
+        +'</div>';
+    }).join('');
+    if(state.edit&&g.players.length<MAXP) h+='<div class="tile add" role="button" tabindex="0" data-act="add-player">+ Lägg till spelare</div>';
+    app.innerHTML=h+'</div>';
+    editLbl.textContent=state.edit?'Klar':'Spelare';
+  }
+  function refocus(act,id){
+    var el=app.querySelector('[data-act="'+act+'"][data-id="'+id+'"]');
+    if(el) el.focus();
+  }
+  function change(id,delta){
+    var p=find(id); if(!p) return;
+    var before=p.score;
+    p.score+=delta;
+    var crossed=delta>0&&!isWin(before)&&isWin(p.score);
+    if(crossed&&!state.game.winnerId){state.game.winnerId=p.id;state.game.winAt=Date.now();}
+    save(); render(); refocus(delta>0?'add':'sub',id);
+    if(crossed){
+      live.textContent=p.name+' har vunnit.'; showWin(p.name);
+      if(navigator.vibrate) navigator.vibrate([40,40,40,40,80]);
+    } else if(delta>0 && before<cfg().lock && p.score>=cfg().lock){
+      live.textContent=p.name+' har nått '+cfg().lock+' poäng och får inte byta kort.';
+      if(navigator.vibrate) navigator.vibrate([30,40,30]);
+    } else {
+      live.textContent=p.name+' har '+fmt(p.score)+' poäng.';
+      if(navigator.vibrate) navigator.vibrate(8);
+    }
+  }
+
+  /* Vinnarskärm */
+  function shellSVG(){
+    var Hx=270,Hy=447,N=21,S=66,i;
+    function R(d){var a=(90-d)*Math.PI/180,ux=Math.cos(a),uy=-Math.sin(a),rx=198,ry=210,px=Hx-272,py=Hy-283;var A=ux*ux/(rx*rx)+uy*uy/(ry*ry),B=px*ux/(rx*rx)+py*uy/(ry*ry),C=px*px/(rx*rx)+py*py/(ry*ry)-1;return (-B+Math.sqrt(B*B-A*C))/A;}
+    function P(d,r){var a=(90-d)*Math.PI/180;return [Hx+r*Math.cos(a),Hy-r*Math.sin(a)];}
+    function f(n){return n.toFixed(1);}
+    var J=[];
+    for(i=0;i<=N;i++){var d=-S+i*(2*S/N);J.push(P(d,R(d)));}
+    var out='M'+f(J[0][0])+' '+f(J[0][1]);
+    for(i=1;i<=N;i++){
+      var dx=J[i][0]-J[i-1][0],dy=J[i][1]-J[i-1][1],r=(Math.sqrt(dx*dx+dy*dy)*0.58).toFixed(1);
+      out+=' A'+r+' '+r+' 0 0 1 '+f(J[i][0])+' '+f(J[i][1]);
+    }
+    function path(dd,delay,dur){return '<path class="d" pathLength="1" d="'+dd+'" style="--d:'+delay.toFixed(2)+'s;--t:'+dur+'s"/>';}
+    var h='';
+    for(i=0;i<=N;i++){
+      h+=path('M'+Hx+' '+Hy+' L'+f(J[i][0])+' '+f(J[i][1]),0.2+Math.abs(i-N/2)*0.045,0.9);
+    }
+    h+=path(out,0.9,1.2);
+    var EP=[[176,416],[164,425],[159,436],[160,446],[166,454],[180,459],[200,460]];
+    [0,1].forEach(function(m){
+      function X(x){return m?540-x:x;}
+      var line='M'+X(EP[0][0])+' '+EP[0][1];
+      EP.forEach(function(q,k){
+        if(k>0){line+=' L'+X(q[0])+' '+q[1];h+=path('M'+Hx+' '+Hy+' L'+X(q[0])+' '+q[1],1.3+k*0.05,0.6);}
+      });
+      line+=' L'+(m?278:262)+' 451';
+      h+=path(line,1.3,0.7);
+    });
+    var w='M'+Hx+' '+Hy;
+    for(i=0;i<=12;i++){var q2=P(-55+i*(110/12),38);w+=' L'+f(q2[0])+' '+f(q2[1]);}
+    h+='<path class="wedge" d="'+w+' Z"/>';
+    return '<svg class="shell" viewBox="40 50 460 430" aria-hidden="true">'+h+'</svg>';
+  }
+  function showWin(name){
+    winAt=Date.now();
+    winHost.innerHTML='<div class="win" role="dialog" aria-modal="true" aria-label="Vinnare: '+esc(name)+'">'+shellSVG()+'<div class="win-name">'+esc(name)+'</div><button class="win-close" type="button">Fortsätt</button></div>';
+    var b=winHost.querySelector('.win-close'); if(b) b.focus();
+  }
+  function closeWin(){winHost.innerHTML='';}
+  function finishWin(){closeWin();go('start');}
+  winHost.addEventListener('click',function(){ if(Date.now()-winAt>1200) finishWin(); });
+
+  /* Handval */
+  function closeSheet(){sheetHost.innerHTML='';}
+  function row(key,label,val,cls){return '<button class="opt'+(cls||'')+'" type="button" data-hand="'+key+'">'+label+'<span>'+val+'</span></button>';}
+  function openSheet(id){
+    var p=find(id); if(!p) return;
+    var o='<div class="grp">Händer</div>'
+      +HANDS.map(function(h,i){return row('h'+i,h[0],pts(h[1]));}).join('')
+      +row('four','Fyrtal','+8 p')
+      +row('fourzero','Fyrtal','nollställ övriga',' special')
+      +row('royal','Royal straight flush','vinner spelet',' special')
+      +'<div class="grp">Övrigt</div>'
+      +OTHER.map(function(h,i){return row('o'+i,h[0],pts(h[1]));}).join('');
+    sheetHost.innerHTML='<div class="sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="Välj hand"><h2>'+esc(p.name)+': välj hand</h2>'+o+'<button class="opt cancel" type="button" data-close="1">Avbryt</button></div></div>';
+    sheetHost.setAttribute('data-id',id);
+    var f=sheetHost.querySelector('.opt'); if(f) f.focus();
+  }
+  function toast(msg,snap){
+    clearTimeout(toastTimer);
+    toastHost.innerHTML='<div class="toast"><span>'+esc(msg)+'</span><button type="button" id="undo">Ångra</button></div>';
+    $('undo').onclick=function(){
+      state.game.players.forEach(function(q){ var o=snap[q.id]; if(o){q.score=o.s;q.four=o.f;q.chi=o.c;} });
+      toastHost.innerHTML=''; save(); render();
+    };
+    toastTimer=setTimeout(function(){toastHost.innerHTML='';},6000);
+  }
+  function applyHand(id,key){
+    var p=find(id); if(!p) return;
+    var snap={}; state.game.players.forEach(function(q){snap[q.id]={s:q.score,f:q.four||0,c:q.chi||0};});
+    var before=p.score,msg;
+    if(key==='four'){p.four=(p.four||0)+1;p.score+=8;msg='Fyrtal: +8 p till '+p.name;}
+    else if(key==='fourzero'){p.four=(p.four||0)+1;state.game.players.forEach(function(q){if(q!==p) q.score=0;});msg='Fyrtal: övriga nollställda';}
+    else if(key==='royal'){p.score=Math.max(p.score,target());msg=p.name+' vinner med royal straight flush';}
+    else{var t=(key.charAt(0)==='h'?HANDS:OTHER)[+key.slice(1)];p.score+=t[1];if(key==='o1') p.chi=(p.chi||0)+1;msg=t[0]+': '+pts(t[1])+' till '+p.name;}
+    var crossed=!isWin(before)&&isWin(p.score);
+    if(crossed&&!state.game.winnerId){state.game.winnerId=p.id;state.game.winAt=Date.now();}
+    closeSheet(); save(); render();
+    if(crossed) showWin(p.name);
+    live.textContent=msg;
+    if(navigator.vibrate) navigator.vibrate(p.score>=cfg().lock&&before<cfg().lock?[30,40,30]:8);
+    toast(msg,snap);
+  }
+  sheetHost.addEventListener('click',function(e){
+    var c=e.target.closest('[data-hand]');
+    if(c){applyHand(sheetHost.getAttribute('data-id'),c.getAttribute('data-hand'));return;}
+    if(e.target.classList.contains('sheet-bg')||e.target.closest('button[data-close]')) closeSheet();
+  });
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeSheet();if(winHost.firstChild) finishWin();}});
+
+  /* Händelser */
+  function act(el){
+    var a=el.getAttribute('data-act'),id=el.getAttribute('data-id'),v=el.getAttribute('data-v'),d=state.draft;
+    if(a==='new-game'){
+      state.draft={lock:state.last.lock,winMode:state.last.winMode,names:['']};
+      go('settings');
+    } else if(a==='continue'){ if(state.game) go('game'); }
+    else if(a==='back'){ go(state.screen==='players'?'settings':'start'); }
+    else if(a==='set-lock'){ d.lock=+v; rSettings(); var f1=app.querySelector('[data-act="set-lock"][data-v="'+v+'"]'); if(f1) f1.focus(); }
+    else if(a==='set-win'){ d.winMode=v; rSettings(); var f2=app.querySelector('[data-act="set-win"][data-v="'+v+'"]'); if(f2) f2.focus(); }
+    else if(a==='to-players'){ go('players'); var i0=app.querySelector('.draft-input'); if(i0) i0.focus(); }
+    else if(a==='add-draft'){ if(d.names.length<MAXP){d.names.push('');rPlayers(d.names.length-1);} }
+    else if(a==='del-draft'){ var i=+el.getAttribute('data-i'); d.names.splice(i,1); rPlayers(Math.min(i,d.names.length-1)); }
+    else if(a==='start-game'){
+      var names=validNames(); if(names.length<2) return;
+      state.last={lock:d.lock,winMode:d.winMode};
+      state.game={gid:Date.now(),startedAt:Date.now(),winnerId:null,winAt:null,settings:{lock:d.lock,winMode:d.winMode},players:names.map(function(nm,k){return {id:k+1,name:nm,score:0,wins:0,four:0,chi:0};}),next:names.length+1};
+      names.forEach(addRoster);
+      save(); go('game');
+    }
+    else if(a==='open-stats') go('stats');
+    else if(a==='open-roster') go('roster');
+    else if(a==='roster-add') rosterAdd();
+    else if(a==='roster-del'){ state.roster.splice(+el.getAttribute('data-i'),1); save(); rRoster(); }
+    else if(a==='pick'){
+      var nm=state.roster[+el.getAttribute('data-i')];
+      if(nm){
+        var nn=d.names,ei=-1;
+        nn.forEach(function(x,j){if(ei<0&&!x.trim()) ei=j;});
+        if(ei>=0) nn[ei]=nm; else if(nn.length<MAXP) nn.push(nm);
+        rPlayers();
+      }
+    }
+    else if(a==='del-rec'){
+      if(el.getAttribute('data-armed')){
+        state.history=state.history.filter(function(r){return String(r.id)!==id;});
+        if(state.game&&String(state.game.gid)===id){state.game.winnerId=null;state.game.winAt=null;}
+        save(); rStats();
+      } else {
+        el.setAttribute('data-armed','1'); el.textContent='Tryck igen';
+        setTimeout(function(){ if(el.isConnected){el.removeAttribute('data-armed');el.textContent='Ta bort';} },3000);
+      }
+    }
+    else if(a==='add') change(id,1);
+    else if(a==='sub') change(id,-1);
+    else if(a==='hand') openSheet(id);
+    else if(a==='del'){
+      if(state.game.players.length<=2) return;
+      state.game.players=state.game.players.filter(function(p){return p.id!=id;});
+      save(); render();
+    } else if(a==='add-player'){
+      state.game.players.push({id:state.game.next++,name:'',score:0,wins:0,four:0,chi:0});
+      save(); render();
+      var ins=app.querySelectorAll('.name-input'); if(ins.length) ins[ins.length-1].focus();
+    }
+  }
+  app.addEventListener('click',function(e){
+    var el=e.target.closest('[data-act]'); if(el&&app.contains(el)) act(el);
+  });
+  app.addEventListener('keydown',function(e){
+    var t=e.target;
+    if(t.id==='rosterIn'&&e.key==='Enter'){e.preventDefault();rosterAdd();return;}
+    if(t.classList.contains('draft-input')&&e.key==='Enter'){
+      e.preventDefault();
+      var n=state.draft.names,i=+t.getAttribute('data-i');
+      if(i===n.length-1){
+        if(n[i].trim()&&n.length<MAXP){n.push('');rPlayers(n.length-1);}
+      } else { var nx=app.querySelector('.draft-input[data-i="'+(i+1)+'"]'); if(nx) nx.focus(); }
+      return;
+    }
+    if(e.key!=='Enter'&&e.key!==' ') return;
+    var el=t.closest('[data-act]');
+    if(el&&el===t&&el.getAttribute('role')==='button'){e.preventDefault();act(el);}
+  });
+  app.addEventListener('input',function(e){
+    var t=e.target;
+    if(t.classList.contains('draft-input')){state.draft.names[+t.getAttribute('data-i')]=t.value;updateStart();}
+    else if(t.classList.contains('name-input')){var p=find(t.getAttribute('data-id'));if(p){p.name=t.value;save();}}
+  });
+
+  editBtn.addEventListener('click',function(){
+    if(state.edit){
+      state.game.players.forEach(function(p,i){p.name=p.name.trim()||('Spelare '+(i+1));addRoster(p.name);});
+      save();
+    }
+    state.edit=!state.edit;render();
+  });
+  homeBtn.addEventListener('click',function(){go('start');});
+  newBtn.addEventListener('click',function(){
+    if(!newArmed){
+      newLbl.textContent='Tryck igen';
+      newBtn.classList.add('armed');
+      newArmed=setTimeout(resetBtn,3000);
+      return;
+    }
+    state.game.players.forEach(function(p){ if(isWin(p.score)) p.wins=(p.wins||0)+1; p.score=0;p.four=0;p.chi=0; });
+    state.game.gid=Date.now();state.game.startedAt=Date.now();state.game.winnerId=null;state.game.winAt=null;
+    toastHost.innerHTML=''; save(); resetBtn(); render();
+    live.textContent='Nästa spel startat.';
+  });
+  function resetBtn(){clearTimeout(newArmed);newArmed=null;newLbl.textContent='Nästa spel';newBtn.classList.remove('armed');}
+
+  render();
+})();
+</script>
+</body>
+</html>
